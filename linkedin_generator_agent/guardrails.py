@@ -15,7 +15,7 @@ MIN_WORDS=50
 MAX_WORDS=700
 
 
-def validate_input(text, max_length):
+def validate_input(text, max_length=500):
     if not text or not isinstance(text, str):
         raise ValueError("Input must be a non-empty string data")
     text = text.strip()[:max_length]

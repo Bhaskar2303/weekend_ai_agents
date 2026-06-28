@@ -77,5 +77,5 @@ RETURN JSON:
     "quality_issues":["area of improvement"],
     "cringe_flags":["cliche prases found"],
     "suggestions":["specific improvement"],
-    "final_verdict":["ready to post / needs revision]
+    "final_verdict":"ready to post / needs revision"
 }}"""

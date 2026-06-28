@@ -6,7 +6,11 @@ import importlib
 DEFAULT_VERSION="v1" #modular
 
 #adityas 
-def load_agent_prompts(version:str = DEFAULT_VERSION):
+ALLOWED_VERSIONS = {"v1"}
+
+def load_agent_prompts(version: str = DEFAULT_VERSION):
+    if version not in ALLOWED_VERSIONS:
+        raise ValueError(f"Unknown prompt version: {version}")
     module = importlib.import_module(f"prompts.{version}.agents")
     return {
         "research":module.RESEARCH_AGENT,
@@ -14,7 +18,9 @@ def load_agent_prompts(version:str = DEFAULT_VERSION):
         "validator":module.VALIDATOR_AGENT
     }
     
-def load_task_prompts(version:str = DEFAULT_VERSION):
+def load_task_prompts(version: str = DEFAULT_VERSION):
+    if version not in ALLOWED_VERSIONS:
+        raise ValueError(f"Unknown prompt version: {version}")
     module = importlib.import_module(f"prompts.{version}.tasks")
     return {
         "research":module.RESEARCH_TASK,

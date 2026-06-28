@@ -62,7 +62,7 @@ class LinkedInPostGenerator:
         self.validation_prompt = tasks_prompts["validation"]
         
     def _run_crew(self, agent, description, expected_ouput):
-        task = Task(description=description, expected_ouput=expected_ouput, agent=agent)
+        task = Task(description=description, expected_output=expected_ouput, agent=agent)
         crew = Crew(agents=[agent], tasks = [task], process=Process.sequential, verbose=False)
         return run_with_retry(crew)
     
@@ -90,3 +90,162 @@ class LinkedInPostGenerator:
         except Exception as e:
             print(f"Resesrch Error : {e}")
             return None
+        
+    def generate_post(self, topic, tone, post_type):
+        try:
+            topic = validate_input(topic, max_length=300)
+            tone = validate_input(tone, max_length=50).lower()
+            post_type = validate_input(post_type, max_length=50).lower()
+            
+            if tone not in self.VALID_TONES:
+                raise ValueError(f"Invalid Tone : Choose from {self.VALID_TONES}")
+            if post_type not in self.VALID_TYPES:
+                raise ValueError(f"Invalid post type : Choose from {self.VALID_TYPES}")
+        except ValueError as e:
+            print(f"[Linkedin Agent] Input guardrail blocked : {e}")
+            return None
+        
+        trace = None
+        if self.lf:
+            trace = self.lf.trace(
+                name='linkedin-post-generator',
+                input={"topic":topic, "tone":tone, "post_type":post_type}
+            )
+            
+        print(f"Generating linkedin post about {topic}")
+        print(f"Tone : {tone} | Type : {post_type}")
+        print('='*50)
+        
+        # Step-1 : Web research 
+        print(f"Step 1 : Researching topic......")
+        span = trace.span(name='tavily-research',input={"topic":topic}) if trace else None 
+        research_data = self.research_topic(topic)
+        if not research_data:
+            print("Research failed")
+            return None
+        if span:
+            span.end(output={"sources":len(research_data['sources'])})
+        
+        #step-2 : Research agent
+        span = trace.span(name='research-agent') if trace else None
+        research_result = self._run_crew(
+            self.research_agent,
+            self.research_prompt.format(
+                topic=topic,
+                post_type=post_type,
+                research_data=json.dumps(research_data, indent=2)
+            ),
+            "JSON response with research insights"
+        )
+        if span:
+            span.end(output={"result":str(research_result)})
+        print(f"Research Complete")
+        
+        #step 3 : Writer agent
+        print("Writing Post.......")
+        span = trace.span(name='writer-agent') if trace else None
+        writing_result = self._run_crew(
+            self.writer_agent,
+            self.writing_prompt.format(
+                topic=topic,
+                tone=tone,
+                post_type=post_type,
+                research_insights=str(research_result)
+            ),
+            "JSON with linkedin post content"
+        )
+        if span:
+            span.end(output={'result':str(writing_result)})
+        print('Writing Complete!')
+        
+        try:
+            post_data = parse_json_response(writing_result)
+        except (json.JSONDecodeError, KeyError, IndexError) as e:
+            print(f"Error in parsinf writing result : {e}")
+            return None
+        
+        #step-4 : validator agent
+        print("Validating post.........")
+        span = trace.span(name='validator-agent') if trace else None
+        validation_result = self._run_crew(
+            self.validator_agent,
+            self.validation_prompt.format(
+                post_content=post_data.get("post_content",""),
+                research_insights=str(research_result),
+                tone=tone
+            ),
+            "Validation repoert with feedback in JSON"
+        )
+        if span:
+            span.end(output={"result":str(validation_result)})
+        print("Validation Complete!")
+        
+        try:
+            validation_data = parse_json_response(validation_result)
+        except (json.JSONDecodeError, KeyError, IndexError) as e:
+            print(f"Error parsinf validation result : {e}")
+            return None
+        
+        #output guardrail 
+        output_check = validate_ouput(post_data, validation_data)
+        if not output_check['passed']:
+            print(f"Outout guardrail warning: {output_check['issues']}")
+            
+        result = {
+            "post":post_data,
+            "validation":validation_data,
+            "research_sources":len(research_data.get('sources',[])),
+            "output_guardrail":output_check,
+        }
+        
+        if trace:
+            trace.update(output={
+                "score":validation_data.get('score'),
+                "verdict":validation_data.get('final_verdict'),
+                "guardrail_passed":output_check['passed']
+            })
+            self.lf.flush()
+        return result
+    
+    
+def main():
+    try:
+        generator = LinkedInPostGenerator(prompt_version="v1")
+        print("Linkedin post genrator - multi agent")
+        
+        topic = input("Enter topic for linkedin post : ").strip()
+        if not topic:
+            print(f"no topic entered")
+            return
+        
+        print("\nTone Options: professional, causal, thought-leader")
+        tone = input("Enter Tone (default :thought-leader): ").strip() or 'thought-leader'
+        
+        print("\nPost Type Options: story, hot-take, announcement, lesson-learned")
+        post_type = input("Enter Post Type (default: story): ").strip() or 'story'
+        
+        result = generator.generate_post(topic, tone, post_type)
+        
+        if result:
+            print('\n' + '='*50)
+            print("Generated Post...")
+            print(f"Hook            : {result['post'].get('hook','NA')}")
+            print(f"Content         : {result['post'].get('post_content','NA')}")
+            print(f"Word Count      : {result['post'].get('word_count','NA')}")
+            print(f"Sources         : {result['research_sources']}")
+            
+            print("\nValidation Report:\n")
+            print(f"Score           : {result['validation'].get('score','NA')}")
+            print(f"Status           : {result['validation'].get('final_verdict','NA')}")
+            
+            issues = result['validation'].get('accuracy_issue', [])
+            if issues:
+                print(f"Issues : {', '.join(issues)}")
+                
+            if not result['output_guardrail']['passed']:
+                print(f"\nGuardrail flags : {result['output_guardrail']['issues']}")
+    except Exception as e:
+        print(f"Unexpected error : {e}")
+
+if __name__ == "__main__":
+    main()            

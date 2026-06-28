@@ -1,0 +1,6 @@
+crewai
+tavily-python
+google-generativeai
+google-api-core
+python-dotenv
+langfuse
