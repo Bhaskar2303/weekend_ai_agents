@@ -48,4 +48,34 @@ RETURN JSON:
     "facts_used":["research points incorporated"]
 }}"""
 
-VALIDATION_TASK = """"""
+VALIDATION_TASK = """Validate the Linkedin post for accuracy and quality
+
+Post content : {post_content}
+Original Research : {research_insights}
+Tone : {tone}
+
+Validation criteria:
+1. Fact-Check all statistics and claims against sources
+2. Ensure content is original and not copied from sources
+3. Verify post follows linkedin best pracitices
+4. Check for proper formatting
+5. Confirm enagement elements are appropriate
+
+
+CRINGE FLAGS TO AVOID:
+- I,m humbled to announce
+- Game changer
+- In today's fast-paced world
+- I'm excited to share/announce
+- TL;DR
+
+RETURN JSON:
+{{
+    "validation_passed":"true/false",
+    "score":"1-10 rating",
+    "accuracy_issue":["any factual problem"],
+    "quality_issues":["area of improvement"],
+    "cringe_flags":["cliche prases found"],
+    "suggestions":["specific improvement"],
+    "final_verdict":["ready to post / needs revision]
+}}"""
