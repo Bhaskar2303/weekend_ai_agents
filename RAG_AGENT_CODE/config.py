@@ -1,3 +1,6 @@
+#all model related config stays in config py
+
+
 from functools import cached_property
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -93,5 +96,3 @@ class Providers:
         
     def callbacks(self):
         return [self.langfuse_handler] if self.langfuse_handler else []
-        
-    

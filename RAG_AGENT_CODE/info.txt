@@ -3,8 +3,8 @@
     ├── .env #all my secrets will be in this file 
     ├── .env.example     #example env so tohet example load
     ├── requirements.txt # all librarors and their ver are here
-    ├── config.py.       #top-k chunk_size
-    ├── guardrails.py    # safety check rag 
+    ├── config.py.       #top-k chunk_size.                            done 
+    ├── guardrails.py    # safety check rag                            done 
     ├── memory.py        #convertions history 
     ├── retrieval.py     # retreive context
     ├── ingest.py        # doc igested
